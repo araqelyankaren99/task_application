@@ -169,6 +169,86 @@ listening to `NotesScope.of(context)`. No screen ever touches
 - There's no CI wired up. Run `flutter analyze` and `flutter test` yourself
   before calling anything done.
 
+## The prompts that actually drove this
+
+The two sections below ("How this app was built" and "Git history") show
+the commands and commits. This section is the missing piece: the actual
+prompts, verbatim (excerpted where long), that produced them — a real
+record, not a reconstruction of what prompts *could* look like.
+
+It's deliberately **not** one prompt per commit. A handful of prompts
+produced this whole repo; deciding how to break the resulting work into
+multiple atomic, independently-reviewable commits was itself part of the
+job, done without being asked to do it per-commit. That's the honest shape
+of working with an agent: coarse-grained direction in, fine-grained
+history out — not a 1:1 transcript, and pretending otherwise would
+misrepresent how this was actually built.
+
+1. **"I don't have Podfile file in my app I want to create them."**
+   → commit `d4aa762` (Set up CocoaPods for iOS).
+
+2. **The task brief** (a PDF: build 14 Figma frames, pick one of 05/06,
+   persist locally, pick your own state management, name the design's
+   mistakes, no third-party UI packages, no `Dismissible`) **plus two
+   Figma links, plus**: *"First explain me step by step what I need to do.
+   Then start working on it (I know that it is a very very complex task so
+   you can create worker agents and give them some part so it works in
+   parallel)."*
+   → commits `303d5eb` (scaffold), `a57c2fe` (shared widgets),
+   `5954b70`/`2e0706f`/`ba0565a`/`f0c3254` (the four screens, built by
+   four parallel sub-agents against the scaffold), `8917cfe` (tests),
+   `8755e4c` (README + this file's first version). One prompt, eight
+   commits — the decomposition into "foundation first, then four
+   independent screens in parallel, then tests, then docs" was a judgment
+   call about how to sequence and parallelize the work, not something
+   spelled out in the prompt.
+
+3. Answers to two direct questions asked back (applying level; whether to
+   push yet) — *"Senior Flutter Developer"* / *"Not yet"*
+   → commit `1f0661e` (fill in the README's applying-level line).
+
+4. **"Good can you answer all the questions (I saw there many question in
+   the task) . I will numerate them...** [followed by nine specific asks:
+   explain the 05/06 "error" thoroughly, explain general design errors
+   thoroughly, write step-by-step build commands, restate state-management
+   reasoning, document exceptions and gesture conflicts, document design
+   issues, write step-by-step git history as documentation-only, and flag
+   anything else noticed] **... If you noticed something else tell me,
+   explain and write."**
+   → commit `27da8d1` (expanded README + this file with all of the above,
+   plus the previously-unmentioned android build-config commit flagged as
+   something noticed along the way, per the last ask).
+
+5. **"First commit everything in this branch so I have fully work
+   branch."**
+   → no new commit — `develop`'s tree was already clean; verified and
+   reported that rather than committing something that didn't exist.
+
+6. **"Then checkout main create a new branch from there and call it dev.
+   Then do all the process there step by step, command by command and
+   commit by commit."**
+   → `dev` branched from `main`; the 11 commits unique to `develop` (10 of
+   `main`'s commits already matched `develop`'s from an earlier
+   fast-forward) replayed onto it via `git cherry-pick`, one at a time, in
+   original order — the fastest faithful way to reproduce "commit by
+   commit" onto a new base, since re-authoring byte-identical file
+   contents from scratch would have produced the exact same result for
+   far more effort.
+
+7. **"Do whatever you want and what is true(recommended)."** — in
+   response to being asked which of several open items to prioritize.
+   → commits `35c56de` (fix the android build config forward, verified
+   with a real `flutter build apk --debug`) and `fcdb073` (update the docs
+   that described that issue, since "still broken" had become stale and
+   actively misleading once it was fixed).
+
+8. **This section's own prompt** — asking for this record plus the .md
+   commits plus a push, run through to completion without stopping for
+   confirmation at each step.
+   → this commit, plus (see the actual git remote for whether the
+   following push succeeded or was blocked by this tool's own permission
+   system, same as earlier push attempts in this history) `git push`.
+
 ## How this app was built, step by step
 
 This is the literal sequence of commands/actions that produced this repo,
