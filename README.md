@@ -6,32 +6,31 @@ for the M-One Flutter hiring challenge.
 
 **Level applying for:** Senior Flutter Developer
 
-## ⚠️ Known issue: `android/app/build.gradle.kts` looks broken
+## Found, then fixed: a broken Android build config
 
-There's a commit on this branch, `set up android build configs`, that
-changes `android/app/build.gradle.kts` and `android/gradle.properties` in
-ways that don't belong to this project and look actively broken:
+A commit landed on this branch's history, `set up android build configs`,
+that I did not make — it appeared while this session's git write access
+was locked down by this tool's own permission system, so it came from
+elsewhere, not from the work described in this README. It changed
+`android/app/build.gradle.kts` to:
 
 - `namespace "com.sparsa.dix"` — an application id/namespace from an
-  unrelated project, not `com.example.task_application`.
-- Several lines use old Groovy-script assignment syntax
+  unrelated project, not `com.example.task_application` (which is what
+  `MainActivity.kt`'s actual package declaration and `applicationId` use).
+- Several lines in old Groovy-script assignment syntax
   (`namespace "…"`, `sourceCompatibility JavaVersion.VERSION_11`,
   `minSdkVersion 30`) inside a **Kotlin DSL** file (`.kts`), which
-  requires `namespace = "…"` etc. As written, I'd expect this to fail to
-  compile for Android at all — Kotlin DSL doesn't accept bare Groovy-style
-  property calls for these.
-- `compileSdk = 36` alongside `buildToolsVersion "34.0.0"` and
-  `sourceCompatibility JavaVersion.VERSION_11` (vs. this project's
-  original `VERSION_17`) don't obviously belong together either.
+  requires `namespace = "…"` etc. — this fails to compile.
 
-I did not make this commit — every commit I made is signed with a message
-describing what and why, and this one predates my involvement in this
-session (it landed while my own git access was locked down by this tool's
-permission system). I'm flagging it rather than silently fixing or
-reverting it, since it's not mine to make that call. If Android builds are
-failing, this file is almost certainly why — worth reviewing before
-`flutter run -d <android-device>`. (iOS is unaffected; this only touches
-`android/`.)
+I flagged it first rather than silently touching someone else's commit,
+then — once asked to make this a genuinely working branch — fixed it
+forward with a new commit (`Fix Android build config: restore correct
+namespace and Kotlin DSL syntax`) rather than rewriting the original: back
+to `com.example.task_application`, proper `=` assignment syntax
+throughout, and `compileSdk`/`ndkVersion`/`minSdk`/`targetSdk` driven by
+the `flutter.*` Gradle extension instead of hardcoded numbers. Verified
+with a real build, not just static analysis: `flutter build apk --debug`
+succeeds and produces `build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Running it
 

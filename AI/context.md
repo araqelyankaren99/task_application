@@ -423,16 +423,27 @@ as telling a reviewer nothing.
     knows, not authoring content — landed after the applicant answered.
 
 **Not listed above: a commit titled `set up android build configs`.** It
-lands after #10 in `git log` but wasn't made by the work described in this
-file — it appeared while this session's git write access was locked down
-by the tool's own permission system, so it came from somewhere else. It
-changes `android/app/build.gradle.kts` to a namespace (`com.sparsa.dix`)
-that belongs to a different project entirely, and mixes Groovy-script
-assignment syntax into a Kotlin-DSL (`.kts`) file in a way that looks like
-it won't compile. See the README's "Known issue" callout near the top —
-flagged there for visibility since it affects `flutter run` on Android,
-not silently fixed or reverted here since it isn't this file's place to
-make that call.
+lands in `git log` between #10 and this file's own commits, but wasn't
+made by the work described here — it appeared while this session's git
+write access was locked down by the tool's own permission system, so it
+came from somewhere else. It changed `android/app/build.gradle.kts` to a
+namespace (`com.sparsa.dix`) that belongs to a different project entirely,
+and mixed Groovy-script assignment syntax into a Kotlin-DSL (`.kts`) file
+in a way that didn't compile.
+
+11. ```bash
+    git add android/app/build.gradle.kts android/gradle.properties
+    git commit -m "Fix Android build config: restore correct namespace and Kotlin DSL syntax"
+    ```
+    Its own commit, fixing forward rather than rewriting the commit
+    above — restores `com.example.task_application` (matching
+    `MainActivity.kt`'s actual package), proper `=` Kotlin-DSL syntax, and
+    `compileSdk`/`ndkVersion`/`minSdk`/`targetSdk` driven by the
+    `flutter.*` Gradle extension instead of hardcoded numbers. Verified
+    with `flutter build apk --debug`, not just `flutter analyze` — an
+    actual build, since this class of bug (wrong DSL syntax in a
+    `.kts` file) is exactly the kind that static analysis of the *Dart*
+    code would never catch.
 
 ## Things you can safely ignore or that are known-incomplete
 
