@@ -4,7 +4,7 @@ A local-only, plain-text notes app built from the [Notes App UI Figma
 design](https://www.figma.com/design/2OJezhe0ZOgw3KeSHLC8Fr/Notes-App-UI--M-one-task-)
 for the M-One Flutter hiring challenge.
 
-**Level applying for:** _TODO — fill in before submitting._
+**Level applying for:** Senior Flutter Developer
 
 ## Running it
 
