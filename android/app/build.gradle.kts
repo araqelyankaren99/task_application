@@ -6,18 +6,17 @@ plugins {
 }
 
 android {
-    namespace "com.sparsa.dix"
-    compileSdk = 36
-    ndkVersion '28.2.13676358'
+    namespace = "com.example.task_application"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
-        coreLibraryDesugaringEnabled true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -25,12 +24,10 @@ android {
         applicationId = "com.example.task_application"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        multiDexEnabled true
-        minSdkVersion 30
-        targetSdkVersion 36
-        buildToolsVersion "34.0.0"
-        versionCode flutter.versionCode
-        versionName flutter.versionName
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
 
     buildTypes {
