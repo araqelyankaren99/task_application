@@ -29,9 +29,7 @@ class NotesController extends ChangeNotifier {
   /// Notes for the home list: favorites-filtered (frame 06) and newest
   /// edited first.
   List<Note> get visibleNotes {
-    final base = _favoritesOnly
-        ? _notes.where((n) => n.isFavorite)
-        : _notes;
+    final base = _favoritesOnly ? _notes.where((n) => n.isFavorite) : _notes;
     final list = base.toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return list;
@@ -43,12 +41,10 @@ class NotesController extends ChangeNotifier {
   List<Note> get searchResults {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return const [];
-    final list =
-        _notes.where((n) {
-          return n.title.toLowerCase().contains(query) ||
-              n.body.toLowerCase().contains(query);
-        }).toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final list = _notes.where((n) {
+      return n.title.toLowerCase().contains(query) ||
+          n.body.toLowerCase().contains(query);
+    }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return list;
   }
 

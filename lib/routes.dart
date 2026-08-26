@@ -9,13 +9,11 @@ import 'screens/search/search_screen.dart';
 class AppRoutes {
   AppRoutes._();
 
-  static Route<void> editor({String? noteId}) => MaterialPageRoute(
-    builder: (_) => EditorScreen(noteId: noteId),
-  );
+  static Route<void> editor({String? noteId}) =>
+      MaterialPageRoute(builder: (_) => EditorScreen(noteId: noteId));
 
-  static Route<void> reading({required String noteId}) => MaterialPageRoute(
-    builder: (_) => ReadingScreen(noteId: noteId),
-  );
+  static Route<void> reading({required String noteId}) =>
+      MaterialPageRoute(builder: (_) => ReadingScreen(noteId: noteId));
 
   static Route<void> search() =>
       MaterialPageRoute(builder: (_) => const SearchScreen());

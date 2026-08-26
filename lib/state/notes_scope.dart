@@ -13,8 +13,7 @@ class NotesScope extends InheritedNotifier<NotesController> {
   }) : super(notifier: controller);
 
   static NotesController of(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<NotesScope>();
+    final scope = context.dependOnInheritedWidgetOfExactType<NotesScope>();
     assert(scope != null, 'No NotesScope found in context');
     return scope!.notifier!;
   }

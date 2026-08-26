@@ -46,10 +46,7 @@ class JsonFileNotesRepository implements NotesRepository {
     if (raw.trim().isEmpty) return [];
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded
-          .cast<Map<String, dynamic>>()
-          .map(Note.fromJson)
-          .toList();
+      return decoded.cast<Map<String, dynamic>>().map(Note.fromJson).toList();
     } on FormatException {
       // Corrupt file (should not happen given atomic writes, but a note
       // app should never crash on launch because of it) — start empty
