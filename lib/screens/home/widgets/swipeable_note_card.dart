@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/note.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/note_card.dart';
+import 'note_actions_sheet.dart';
 
 /// Wraps the shared [NoteCard] with the swipe-to-delete (frame 03) /
 /// swipe-to-favorite (frame 04) gesture layer. Deliberately not built on
@@ -20,6 +21,13 @@ import '../../../widgets/note_card.dart';
 /// way (touch-slop + direction), while the list's own vertical scroll
 /// recognizer competes independently by initial direction — no manual
 /// arena tricks needed.
+///
+/// Long-press opens [showNoteActionsSheet] — a non-gesture path to the
+/// same delete/favorite actions the swipe reaches, for anyone who can't
+/// perform (or reliably trigger) a horizontal drag. `InkWell` already
+/// supports `onLongPress` as a distinct recognizer (a hold past a timer,
+/// not a drag), so this composes with the arena above rather than adding
+/// to its ambiguity.
 class SwipeableNoteCard extends StatefulWidget {
   const SwipeableNoteCard({
     super.key,
@@ -120,6 +128,19 @@ class _SwipeableNoteCardState extends State<SwipeableNoteCard>
     setState(() => _fadingOut = true);
   }
 
+  void _openActionsMenu(BuildContext context) {
+    if (_fadingOut) return;
+    showNoteActionsSheet(
+      context,
+      note: widget.note,
+      onOpen: widget.onTap,
+      onToggleFavorite: widget.onFavorite,
+      // Same commit path as a swipe-delete, so it gets the same
+      // fade-then-collapse animation instead of the note just vanishing.
+      onDelete: _commitDelete,
+    );
+  }
+
   void _onFadeEnd() {
     if (!_fadingOut || _removing || !mounted) return;
     setState(() => _removing = true);
@@ -169,6 +190,7 @@ class _SwipeableNoteCardState extends State<SwipeableNoteCard>
                             child: NoteCard(
                               note: widget.note,
                               onTap: widget.onTap,
+                              onLongPress: () => _openActionsMenu(context),
                             ),
                           ),
                         ],

@@ -9,12 +9,25 @@ import '../theme/note_colors.dart';
 ///
 /// Deliberately dumb: it knows nothing about swiping, deleting or
 /// favoriting. `home_screen.dart` wraps this in its own gesture layer for
-/// swipe-to-delete / swipe-to-favorite; this widget only renders + taps.
+/// swipe-to-delete / swipe-to-favorite; this widget only renders + taps
+/// (+ optionally long-presses — see [onLongPress]).
 class NoteCard extends StatelessWidget {
-  const NoteCard({super.key, required this.note, required this.onTap});
+  const NoteCard({
+    super.key,
+    required this.note,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final Note note;
   final VoidCallback onTap;
+
+  /// Optional long-press handler. `SwipeableNoteCard` (home screen) uses
+  /// this to open a non-gesture action menu — the horizontal swipe is the
+  /// only way to delete/favorite a note otherwise, which has no fallback
+  /// for a screen-reader or switch-control user. Search results pass
+  /// nothing here; a plain tap-only card is fine there.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +38,7 @@ class NoteCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           child: Row(
