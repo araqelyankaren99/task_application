@@ -170,12 +170,14 @@ listening to `NotesScope.of(context)`. No screen ever touches
 - **Deleting a note (via swipe or the long-press menu — both funnel
   through the same `onDelete` callback) shows an Undo snackbar.**
   `_deleteWithUndo` in `home_screen.dart` captures the note by value
-  before deleting, and Undo just re-`upsert`s it. I was not able to fully
-  verify the Undo tap itself on-device in this session (see the README's
-  "What is still wrong with this" for the specific, honestly-described
-  anomaly I hit trying); the delete-and-persist half of this is verified,
-  the undo-tap half is verified by code reading only. Worth a real check
-  before assuming it's solid.
+  before deleting, and Undo just re-`upsert`s it. Fully verified
+  on-device, both halves, directly against `notes.json` on disk: delete
+  persists correctly, and tapping Undo restores the exact note (same id,
+  content, favorite state). An earlier verification attempt used
+  screenshot-pixel coordinates instead of the simulator's point space for
+  the Undo tap and looked like a bug because of it — see the README's
+  "What is still wrong with this" for that correction; it's a testing
+  note, not a code caveat.
 - **The eye icon (editor header) and the info icon (home header) don't do
   anything meaningful.** Neither destination is defined anywhere in the
   two Figma prototype flows that were traceable. They're placeholder
@@ -462,14 +464,45 @@ the gesture-arena resolution in full):
       README had named ("no way to act on a note without a horizontal
       drag"). Verified on-device.
     - An Undo snackbar on delete — closes the "no recovery from an
-      accidental delete" gap. The delete-and-persist half was verified
-      (checked `notes.json` directly); the Undo tap itself hit an
-      unresolved simulator-automation timing anomaly — documented
-      honestly in the README rather than claimed as fully verified.
+      accidental delete" gap. At this point in the session, the
+      delete-and-persist half was verified (checked `notes.json`
+      directly) but the Undo tap itself hit what looked like an
+      unresolved simulator-automation timing anomaly — see Phase 8 below
+      for how that resolved.
 46. Update `README.md`'s "what's still wrong" and exceptions/gesture
     sections to describe what was *fixed*, not present four now-closed
     gaps as still open. Update this file's Traps section the same way.
     Commit.
+
+**Phase 8 — one more full run-through, on request ("run my app in the
+simulator and check all the flow one more time")**:
+47. Uninstall the app from the simulator and do a completely fresh
+    `flutter run` — a clean install, not a hot-reloaded session carrying
+    over state from earlier testing.
+48. Walk the entire flow again by hand, screenshotting after every step:
+    empty state → create+favorite+save a note → reading view (plain
+    text) → back → search by body text → back → create a second note →
+    favorites filter → swipe-to-favorite → swipe-to-delete → Undo →
+    long-press menu (Open, and separately Delete) → edit → unsaved-
+    changes dialog → Save → confirm the edit persisted in the reading
+    view.
+49. This is where the "unresolved timing anomaly" from Phase 7 got
+    resolved: retried the Undo tap and it failed again in the same way,
+    which prompted actually checking the tap coordinates being sent
+    rather than accepting the mystery — they were screenshot-pixel
+    values, not the 393×852-point space the simulator's input expects
+    (one, `x=809`, was larger than the screen is wide in points, which
+    should have been the tell). Corrected coordinates → Undo worked
+    immediately, confirmed by reading `notes.json` before and after.
+    Same root-cause coordinate error had also silently broken two other
+    taps earlier in this same run (a long-press landed on empty space
+    below the second note card, and an edit-icon tap did nothing) —
+    both resolved the same way, by recomputing the point-space position
+    instead of using a pixel estimate directly.
+50. Corrected both `README.md` and this file: the "unexplained anomaly"
+    text was actively wrong once disproven, not just outdated — rewrote
+    it to say plainly what the mistake was and how it was found, rather
+    than deleting the account of getting it wrong. Commit.
 
 ## Git history, one commit at a time
 
@@ -668,6 +701,20 @@ way that didn't compile.
     honestly, the one thing (verifying the Undo tap itself) that fixing
     the code didn't also let me fully verify. See "What is still wrong
     with this" in the README for the exact wording used.
+
+19. ```bash
+    git add README.md AI/context.md
+    git commit -m "Correct the Undo verification note: it was a test coordinate bug, not a code issue"
+    ```
+    A fresh, clean-install, full run-through (Phase 8 above) resolved
+    the one thing #18 left open. The "unresolved timing anomaly" around
+    Undo turned out to be screenshot-pixel coordinates sent where
+    point-space coordinates were expected — not a code bug. Both files
+    got corrected to say that plainly, with the mistake left visible
+    rather than quietly edited away, since the brief's own bar for this
+    section is "what you know is wrong," and getting a verification
+    attempt wrong is exactly that, even when the underlying code was
+    fine the whole time.
 
 ## Things you can safely ignore or that are known-incomplete
 
