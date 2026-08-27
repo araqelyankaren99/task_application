@@ -259,10 +259,11 @@ found, in the order I found it:
     same note on tap) — for an app that explicitly cares about "nothing
     lost when the process is killed," shipping with zero recovery path
     for an accidental swipe-delete felt like the wrong call even though
-    it's consistent with what the design shows. See "What is still wrong
-    with this" for an honest caveat about how thoroughly I was able to
-    verify the Undo tap itself works, versus the delete/persistence
-    behavior underneath it, which I verified directly.
+    it's consistent with what the design shows. Both halves — delete
+    persisting correctly, and Undo actually restoring the note — are
+    verified directly against `notes.json` on disk (see "What is still
+    wrong with this" for the one testing mistake that briefly made this
+    look broken, and how it was resolved).
 13. **Figma view-only access made the file itself hard to audit at
     times** — worth naming as part of "where the design broke leaving its
     frame," even though it's about my process rather than the mock. At
@@ -327,25 +328,25 @@ questionable in my own code, not a victory lap:
   simultaneous multi-touch, or a swipe started mid-scroll-momentum. See
   "Gesture conflicts, in detail" below for exactly how the three
   recognizers involved actually resolve, and where the untested edges are.
-- **An unexplained timing anomaly while manually verifying the undo
-  snackbar** — worth naming precisely rather than hiding. I deleted a
-  note (via the new long-press menu), got the "Note deleted / Undo"
-  snackbar, and then repeated attempts to tap its Undo action over
-  several minutes of simulator interaction didn't restore the note, and
-  the snackbar itself didn't auto-dismiss on its 4-second timer either —
-  it just sat there. The app stayed fully responsive throughout (I could
-  still navigate to a different note and back while it was showing), and
-  the delete itself had already correctly persisted to disk independent
-  of the snackbar, which I confirmed by reading `notes.json` directly. My
-  best explanation is that the simulator's process gets throttled between
-  sparse, tool-driven touch events (real gaps of a minute or more between
-  each of my taps) in a way a continuously-focused real user session
-  never would be, starving `Timer`-based work like the snackbar's
-  countdown — not a bug in the (structurally straightforward,
-  `SnackBarAction`-standard) undo code itself, as far as I can tell by
-  reading it, but I could not get a clean, fast, real-device-equivalent
-  test of the actual Undo tap in the time I had. Worth a real-device
-  check before trusting this one fully.
+- **(Resolved) The undo snackbar's Undo action is fully verified now —
+  an earlier version of this section described an "unexplained timing
+  anomaly" that turned out to be a testing mistake, not a code issue,
+  and it's worth being precise about that correction rather than quietly
+  dropping it.** What actually happened: several automated taps at the
+  Undo button's location did nothing, across multiple attempts, which
+  looked exactly like a real bug — until I noticed the tap coordinates
+  I'd been sending were in *screenshot pixels*, not the 393×852 *point*
+  space the simulator's input actually expects (one of them, `x=809`,
+  was larger than the 393pt screen is wide, which should have been the
+  giveaway sooner). Once corrected, Undo worked on the first proper tap,
+  confirmed by reading `notes.json` directly before and after: the note
+  reappeared with its original id, content, and favorite state intact.
+  Re-verified in a full fresh clean-install pass afterward (delete →
+  Undo → confirmed restored on disk) with no issues. The lesson that's
+  actually worth keeping from this isn't about the app — it's that a
+  test claiming to find a bug deserves the same scrutiny as the code it's
+  testing, and I'm leaving this account in rather than deleting the
+  history of getting it wrong first.
 
 ### Gesture conflicts, in detail
 
