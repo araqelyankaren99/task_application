@@ -44,15 +44,32 @@ class JsonFileNotesRepository implements NotesRepository {
     if (!await file.exists()) return [];
     final raw = await file.readAsString();
     if (raw.trim().isEmpty) return [];
+
+    final List<dynamic> decoded;
     try {
-      final decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded.cast<Map<String, dynamic>>().map(Note.fromJson).toList();
+      decoded = jsonDecode(raw) as List<dynamic>;
     } on FormatException {
-      // Corrupt file (should not happen given atomic writes, but a note
-      // app should never crash on launch because of it) — start empty
-      // rather than lose the ability to open the app.
+      // The whole file isn't valid JSON (should not happen given atomic
+      // writes, but a note app should never crash on launch because of
+      // it) — start empty rather than lose the ability to open the app.
       return [];
     }
+
+    // Parse each note independently: one malformed entry (a hand-edited
+    // file, a future schema change gone wrong) should cost that one note,
+    // not the entire list. `Note.fromJson` throws (not just
+    // FormatException — a missing/wrong-typed field throws TypeError) on
+    // anything it can't make sense of, so a broad catch per-entry is the
+    // right width here, unlike the narrower one above.
+    final notes = <Note>[];
+    for (final entry in decoded) {
+      try {
+        notes.add(Note.fromJson(entry as Map<String, dynamic>));
+      } catch (_) {
+        continue;
+      }
+    }
+    return notes;
   }
 
   @override

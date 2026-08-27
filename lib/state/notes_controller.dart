@@ -16,10 +16,16 @@ class NotesController extends ChangeNotifier {
 
   List<Note> _notes = [];
   bool _isLoading = true;
+  bool _hasLoadError = false;
   String _searchQuery = '';
   bool _favoritesOnly = false;
 
   bool get isLoading => _isLoading;
+
+  /// True if the initial [load] threw and the note list could not be
+  /// read — distinct from [isLoading]: a screen should show a retry
+  /// affordance for this, not spin forever. See [load].
+  bool get hasLoadError => _hasLoadError;
   String get searchQuery => _searchQuery;
   bool get favoritesOnly => _favoritesOnly;
 
@@ -55,10 +61,29 @@ class NotesController extends ChangeNotifier {
     return null;
   }
 
+  /// Loads the note list from the repository. Safe to call again (e.g.
+  /// from a "Retry" button) after a failed attempt — resets
+  /// [hasLoadError] and tries again rather than staying stuck.
+  ///
+  /// Previously this let a repository failure propagate uncaught: since
+  /// `main.dart` calls this fire-and-forget from `initState`, an
+  /// unhandled exception here meant `_isLoading` never flipped to
+  /// `false` and the home screen's spinner hung forever with no error
+  /// shown. Catching it and exposing [hasLoadError] turns that into a
+  /// real, visible, recoverable state instead.
   Future<void> load() async {
-    _notes = await _repository.load();
-    _isLoading = false;
+    _isLoading = true;
+    _hasLoadError = false;
     notifyListeners();
+    try {
+      _notes = await _repository.load();
+      _hasLoadError = false;
+    } catch (_) {
+      _hasLoadError = true;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void setSearchQuery(String query) {

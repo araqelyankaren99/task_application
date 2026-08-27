@@ -51,6 +51,8 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: controller.isLoading
                       ? const Center(child: CircularProgressIndicator())
+                      : controller.hasLoadError
+                      ? _LoadErrorState(onRetry: controller.load)
                       : notes.isEmpty
                       ? EmptyState(favoritesOnly: controller.favoritesOnly)
                       : ResponsiveCenter(
@@ -85,6 +87,53 @@ class HomeScreen extends StatelessWidget {
         onPressed: () =>
             Navigator.of(context).push(AppRoutes.editor(noteId: null)),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// Shown when [NotesController.load] fails — previously this state didn't
+/// exist at all, and a load failure just left [NotesController.isLoading]
+/// stuck `true` forever with the spinner spinning and no way out. See
+/// [NotesController.load]'s doc comment for the full story.
+class _LoadErrorState extends StatelessWidget {
+  const _LoadErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 56,
+              color: Colors.white38,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Couldn't load your notes",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Something went wrong reading your notes from storage.',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }

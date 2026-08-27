@@ -32,8 +32,37 @@ void main() {
       await controller.load();
 
       expect(controller.isLoading, isFalse);
+      expect(controller.hasLoadError, isFalse);
       expect(controller.allNotes, hasLength(1));
       expect(controller.allNotes.single.title, 'Existing');
+    });
+
+    test(
+      'load sets hasLoadError instead of hanging when the repository throws',
+      () async {
+        final repo = FakeNotesRepository([_note(id: '1')])..failNextLoad = true;
+        final controller = NotesController(repo);
+
+        await controller.load();
+
+        expect(controller.isLoading, isFalse);
+        expect(controller.hasLoadError, isTrue);
+        expect(controller.allNotes, isEmpty);
+      },
+    );
+
+    test('a retried load recovers once the repository works again', () async {
+      final repo = FakeNotesRepository([_note(id: '1', title: 'Recovered')])
+        ..failNextLoad = true;
+      final controller = NotesController(repo);
+      await controller.load();
+      expect(controller.hasLoadError, isTrue);
+
+      repo.failNextLoad = false;
+      await controller.load();
+
+      expect(controller.hasLoadError, isFalse);
+      expect(controller.allNotes.single.title, 'Recovered');
     });
 
     test('upsert adds a new note and persists it', () async {
