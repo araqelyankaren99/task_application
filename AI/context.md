@@ -30,7 +30,8 @@ lib/
     note_card.dart              Shared NoteCard — reused by home list AND search results
     responsive_center.dart      ResponsiveCenter — wrap EVERY screen body in this
   screens/
-    home/                       List, empty state, All/Favorite filter, swipe gestures
+    home/                       List, empty state, All/Favorite filter, swipe gestures,
+                                 long-press action menu, delete-with-undo
     editor/                     Create/edit, save/discard dialog, static toolbar
     reading/                    Read-only note view
     search/                     Search field + results + no-results state
@@ -126,25 +127,55 @@ listening to `NotesScope.of(context)`. No screen ever touches
   shows a color picker; there's nothing for a user to have set. Don't add
   a `color` field to `Note` to "make it more flexible" unless a task
   explicitly asks for user-chosen colors.
-- **`Note.fromJson`'s `id` field has no fallback and can throw a
-  `TypeError` that the repository's `on FormatException` catch won't
-  catch**, and `NotesController.load()` is called fire-and-forget from
-  `main.dart` with no error handling anywhere in that chain — if it ever
-  throws, the home screen's loading spinner just hangs forever with no
-  error shown. See the README's "Exceptions and error handling" section
-  for the full trace; don't "fix" this by adding a broad try/catch
-  somewhere without also giving the user a visible retry path, or you'll
-  turn a loud failure into a silent one.
-- **Tap, horizontal-swipe, and vertical-scroll on a home-screen note card
-  all resolve through Flutter's normal gesture arena, not through custom
-  disambiguation logic.** `NoteCard`'s `InkWell` owns tap;
-  `SwipeableNoteCard`'s `GestureDetector` owns only horizontal drag; the
-  `ListView` owns vertical drag. Splitting tap and drag onto different
-  widgets is about code ownership, not about avoiding the arena — the
-  arena resolves the same way regardless of which widget declares which
-  recognizer, since arenas are per-pointer across the whole hit-test
-  chain. See the README's "Gesture conflicts, in detail" section before
-  changing anything here.
+- **`JsonFileNotesRepository.load()` parses each note entry independently
+  now — one malformed entry is skipped, not fatal to the rest of the
+  list.** This was a real bug, found and fixed: `Note.fromJson`'s `id`
+  field has no fallback (unlike `title`/`body`/`isFavorite`) and throws a
+  `TypeError` on a missing/wrong-typed value, which the old single
+  try/catch around the *whole* decoded array (keyed to `FormatException`
+  only) didn't catch — one bad note used to take every other note down
+  with it. Verified on-device, not just by re-reading the code: a
+  hand-written `notes.json` with a note missing `id`, a non-note object,
+  and one valid note, loaded with only the valid note surviving. If you
+  touch `Note.fromJson` or this load path, keep the per-entry try/catch —
+  don't collapse it back into a single try/catch around the whole array.
+- **`NotesController.load()` catches its own failures and exposes
+  `hasLoadError`.** It used to be called fire-and-forget from
+  `main.dart` with no error handling anywhere in the chain — a
+  repository failure left `isLoading` stuck `true` forever with no error
+  shown. Now it catches, sets `hasLoadError`, and is safe to call again
+  (the home screen's new error state has a "Retry" button that does
+  exactly that). If you touch `load()`, keep it re-callable — don't
+  assume it only ever runs once per app lifetime.
+- **Tap, long-press, horizontal-swipe, and vertical-scroll on a
+  home-screen note card all resolve through Flutter's normal gesture
+  arena, not through custom disambiguation logic.** `NoteCard`'s
+  `InkWell` owns tap *and* long-press (`onLongPress` opens
+  `showNoteActionsSheet` — see below); `SwipeableNoteCard`'s
+  `GestureDetector` owns only horizontal drag; the `ListView` owns
+  vertical drag. Splitting these across widgets is about code ownership,
+  not about avoiding the arena — the arena resolves the same way
+  regardless of which widget declares which recognizer, since arenas are
+  per-pointer across the whole hit-test chain. See the README's "Gesture
+  conflicts, in detail" section before changing anything here.
+- **Delete and favorite have a non-gesture path now: long-press → action
+  sheet.** `showNoteActionsSheet` (`screens/home/widgets/
+  note_actions_sheet.dart`) offers Open/Favorite-toggle/Delete — every
+  action the swipe gesture reaches, reachable without performing a drag.
+  Its Delete goes through `SwipeableNoteCard`'s own `_commitDelete()`, so
+  it gets the identical fade-then-collapse animation as a swipe-delete,
+  not an instant removal. If you add a new per-note action, add it here
+  too, not only to the swipe gesture — the whole point of this menu is
+  parity with swipe, not a partial substitute for it.
+- **Deleting a note (via swipe or the long-press menu — both funnel
+  through the same `onDelete` callback) shows an Undo snackbar.**
+  `_deleteWithUndo` in `home_screen.dart` captures the note by value
+  before deleting, and Undo just re-`upsert`s it. I was not able to fully
+  verify the Undo tap itself on-device in this session (see the README's
+  "What is still wrong with this" for the specific, honestly-described
+  anomaly I hit trying); the delete-and-persist half of this is verified,
+  the undo-tap half is verified by code reading only. Worth a real check
+  before assuming it's solid.
 - **The eye icon (editor header) and the info icon (home header) don't do
   anything meaningful.** Neither destination is defined anywhere in the
   two Figma prototype flows that were traceable. They're placeholder

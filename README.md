@@ -46,7 +46,7 @@ automatically on first build.
 
 ```bash
 flutter analyze   # should be clean
-flutter test      # 21 tests: controller behavior + golden images
+flutter test      # 23 tests: controller behavior + golden images
 ```
 
 ## State management: plain `ChangeNotifier`
@@ -153,12 +153,23 @@ whichever alternate isn't picked is out of scope, not a stretch goal.
   combination. The 12 resulting images are committed under
   `test/goldens/` so they can be looked at directly, not just trusted.
 - **Manual**: full click-through (create → save → favorite → search →
-  swipe-delete → swipe-favorite → filter → read → edit) on an iPhone 16
-  simulator, iOS 18.5, 393×852pt.
-- **Not checked**: a real device (only simulator), any Android device or
-  emulator, the desktop/web targets `flutter create` scaffolds by default,
-  Dynamic Type/accessibility text sizes beyond 2×, VoiceOver/TalkBack,
-  RTL locales. These are gaps, not "it definitely works" — see below.
+  swipe-delete → swipe-favorite → filter → read → edit → long-press menu
+  → delete + undo) on an iPhone 16 simulator, iOS 18.5, 393×852pt.
+  Separately confirmed the note-loading fix by hand-writing a
+  deliberately corrupt `notes.json` (one note missing its `id`, one
+  non-note object, one valid note) directly into the simulator's app
+  data, force-quitting, and relaunching — only the valid note loaded.
+- **Attempted, didn't complete**: a live run on Android. `flutter build
+  apk --debug` succeeds (I fixed a genuinely broken build config to get
+  there — see the callout at the top), but I couldn't get a real run on
+  an emulator: this sandboxed environment couldn't meaningfully reach
+  Google's SDK servers to download a system image (~12KB in 40 minutes
+  before I gave up on it). Build-verified, not run-verified — a real
+  distinction, named honestly rather than blurred.
+- **Not checked at all**: a real device (only simulator), the desktop/web
+  targets `flutter create` scaffolds by default, Dynamic Type/
+  accessibility text sizes beyond 2×, VoiceOver/TalkBack, RTL locales.
+  These are gaps, not "it definitely works" — see below.
 
 `ResponsiveCenter` caps content at 640 logical pixels and centers it on
 anything wider, rather than letting a single column of note cards stretch
@@ -243,12 +254,15 @@ found, in the order I found it:
     design itself doesn't settle this, I did.
 12. **No affordance for undoing a delete anywhere in the design.** Once a
     swipe-to-delete commits, frames 01-14 show no snackbar, no "Undo",
-    nothing. I built it exactly that way — delete is immediate and
-    permanent — but for an app that explicitly cares about "nothing lost
-    when the process is killed," having zero recovery path for an
-    accidental swipe-delete is a real, if consistent-with-the-design, gap.
-    See "What is still wrong with this" below for where I'd put this on a
-    priority list.
+    nothing. Rather than build it that way and flag the gap, I added an
+    Undo snackbar (delete → "Note deleted" + Undo, re-inserting the exact
+    same note on tap) — for an app that explicitly cares about "nothing
+    lost when the process is killed," shipping with zero recovery path
+    for an accidental swipe-delete felt like the wrong call even though
+    it's consistent with what the design shows. See "What is still wrong
+    with this" for an honest caveat about how thoroughly I was able to
+    verify the Undo tap itself works, versus the delete/persistence
+    behavior underneath it, which I verified directly.
 13. **Figma view-only access made the file itself hard to audit at
     times** — worth naming as part of "where the design broke leaving its
     frame," even though it's about my process rather than the mock. At
@@ -269,17 +283,27 @@ questionable in my own code, not a victory lap:
   reveal; it feels reasonable on the simulator, but I have not user-tested
   it, and a real finger on real glass may disagree with what feels right
   on a trackpad-driven simulator tap.
-- **No manual testing beyond one iOS simulator.** Everything above "ran
-  the automated widget/golden tests" and "clicked through the whole app
-  once on an iPhone 16 simulator" is unverified: no real device, no
-  Android at all (simulator or device), no desktop/web target despite
-  `flutter create` having scaffolded them, no Dynamic Type beyond the 2×
-  covered by the golden tests, no screen reader pass.
-- **Minimal accessibility semantics.** Icon buttons get Flutter's default
-  `Tooltip`/`Icon` semantics; I did not do a deliberate `Semantics`-label
-  pass (e.g. the swipe-to-delete/favorite gesture has no non-gesture
-  fallback for a screen-reader or switch-control user — there's no way to
-  delete or favorite a note without a horizontal drag).
+- **Android is build-verified, not run-verified.** `flutter build apk
+  --debug` succeeds and I fixed a real, broken build config on this
+  branch (see the callout above), but I never got the app running live on
+  Android to click through it the way I did on iOS. I tried: installed
+  the Android SDK's `sdkmanager` and attempted to download a system image
+  to create an emulator, but this sandboxed environment couldn't
+  meaningfully reach Google's SDK servers — the download sat at ~12KB
+  with no progress for 40 minutes before I killed it. A real device or a
+  machine with normal network access would close this gap in minutes;
+  I'm naming the gap rather than claiming coverage I don't have.
+- **No real device, no desktop/web target, no Dynamic Type beyond the 2×
+  covered by the golden tests, no screen reader pass.** All still true —
+  everything here is simulator- and unit/widget-test-verified only.
+- **Accessibility semantics are still minimal beyond one concrete fix.**
+  Delete/favorite now have a non-gesture path (long-press → action sheet,
+  added and verified on-device — see below), which closes the specific
+  "no way to act on a note without a horizontal drag" gap this section
+  used to name. What's still missing: a deliberate `Semantics`-label pass
+  beyond Flutter's defaults, and no actual screen-reader (VoiceOver)
+  pass — I verified the menu opens and its items are tappable, not that
+  VoiceOver announces them sensibly.
 - **The editor's eye icon toggles local state that has no visible effect.**
   I chose to keep it interactive (see `AI/context.md`) rather than a true
   no-op, but on reflection a real user tapping it and seeing nothing
@@ -303,27 +327,54 @@ questionable in my own code, not a victory lap:
   simultaneous multi-touch, or a swipe started mid-scroll-momentum. See
   "Gesture conflicts, in detail" below for exactly how the three
   recognizers involved actually resolve, and where the untested edges are.
+- **An unexplained timing anomaly while manually verifying the undo
+  snackbar** — worth naming precisely rather than hiding. I deleted a
+  note (via the new long-press menu), got the "Note deleted / Undo"
+  snackbar, and then repeated attempts to tap its Undo action over
+  several minutes of simulator interaction didn't restore the note, and
+  the snackbar itself didn't auto-dismiss on its 4-second timer either —
+  it just sat there. The app stayed fully responsive throughout (I could
+  still navigate to a different note and back while it was showing), and
+  the delete itself had already correctly persisted to disk independent
+  of the snackbar, which I confirmed by reading `notes.json` directly. My
+  best explanation is that the simulator's process gets throttled between
+  sparse, tool-driven touch events (real gaps of a minute or more between
+  each of my taps) in a way a continuously-focused real user session
+  never would be, starving `Timer`-based work like the snackbar's
+  countdown — not a bug in the (structurally straightforward,
+  `SnackBarAction`-standard) undo code itself, as far as I can tell by
+  reading it, but I could not get a clean, fast, real-device-equivalent
+  test of the actual Undo tap in the time I had. Worth a real-device
+  check before trusting this one fully.
 
 ### Gesture conflicts, in detail
 
-Every note card in the home list has to resolve three different gestures
+Every note card in the home list has to resolve four different gestures
 that all start from the same touch-down point: **tap** (open the note),
-**horizontal drag** (swipe to delete/favorite), and **vertical drag**
-(scroll the list). Here's exactly how that's wired, and what I did and
-didn't verify about it.
+**long-press** (open the action menu — added after this section was
+first written, see below), **horizontal drag** (swipe to delete/
+favorite), and **vertical drag** (scroll the list). Here's exactly how
+that's wired, and what I did and didn't verify about it.
 
-`NoteCard` (`lib/widgets/note_card.dart`) owns the tap: it's a plain
-`InkWell` with `onTap`, and it knows nothing about swiping. The home
-screen wraps it in `SwipeableNoteCard`
-(`lib/screens/home/widgets/swipeable_note_card.dart`), which adds a
-`GestureDetector` with only `onHorizontalDragStart` / `Update` / `End` —
-no `onTap` there. The list itself is a plain `ListView.builder`, which
-gets its own vertical-drag recognizer for free from `Scrollable`.
+`NoteCard` (`lib/widgets/note_card.dart`) owns the tap *and* the
+long-press: both are plain `InkWell` properties (`onTap`, `onLongPress`),
+and the card knows nothing about swiping. The home screen wraps it in
+`SwipeableNoteCard` (`lib/screens/home/widgets/swipeable_note_card.dart`),
+which adds a `GestureDetector` with only `onHorizontalDragStart` /
+`Update` / `End` — no `onTap`/`onLongPress` there. The list itself is a
+plain `ListView.builder`, which gets its own vertical-drag recognizer for
+free from `Scrollable`.
 
-That means, for one pointer touching one card, three recognizers are
-registered along the same hit-test chain: a `TapGestureRecognizer` (from
-`InkWell`), a `HorizontalDragGestureRecognizer` (from `SwipeableNoteCard`),
-and the list's vertical pan recognizer (from `Scrollable`). Flutter's
+That means, for one pointer touching one card, four recognizers are
+registered along the same hit-test chain: a `TapGestureRecognizer` and a
+`LongPressGestureRecognizer` (both from `InkWell`), a
+`HorizontalDragGestureRecognizer` (from `SwipeableNoteCard`), and the
+list's vertical pan recognizer (from `Scrollable`). Long-press adds no
+new ambiguity to the three already described below: it's a *hold*
+recognizer (wins if the pointer stays down past a timer without moving
+past touch-slop), so it only ever competes with tap (which needs a quick
+release) and the two drag recognizers (which need directional movement)
+— never all four resolving toward different actions at once. Flutter's
 gesture arena — not any custom logic in this codebase — is what decides
 which one wins, using its normal rules: a recognizer that requires
 directional movement rejects itself once movement crosses touch-slop in
@@ -346,7 +397,9 @@ instead, the arena outcome would be the same — this was a code-
 organization choice, not a conflict-avoidance trick.
 
 What I actually tested (manually, on the iOS simulator, one finger,
-mouse-driven taps/drags): straight taps open the note; straight left/right
+mouse-driven taps/drags): straight taps open the note; a long-press opens
+the action menu, and its Delete option goes through the same
+fade-then-collapse animation as a swipe-delete; straight left/right
 swipes past 45% commit; straight vertical drags scroll the list without
 triggering the swipe reveal. What I did **not** test: a diagonal drag near
 45°, where the outcome depends on exactly which direction crosses its
@@ -363,38 +416,39 @@ underlying recognizer logic is identical.
 
 ### Exceptions and error handling — what's actually handled, and what isn't
 
-- **Corrupt JSON on disk is caught.**
+- **Corrupt JSON on disk is caught at two levels now, not one.** The
+  outer `try { jsonDecode(raw) } on FormatException { return []; }` in
   `JsonFileNotesRepository.load()` (`lib/data/notes_repository.dart`)
-  wraps `jsonDecode` in `try { ... } on FormatException { return []; }` —
-  if `notes.json` somehow contains invalid JSON, the app starts with an
-  empty list instead of crashing on launch. This *should* be unreachable
-  given the atomic-write scheme (see "Persistence" above), but "should be
-  unreachable" isn't the same as "the code assumes it can't happen," which
-  is the point of the guard.
-- **A note missing its `id` field is *not* handled, and this is a real
-  gap.** `Note.fromJson` (`lib/models/note.dart`) does
-  `json['id'] as String` — a non-nullable cast with no fallback, unlike
-  `title`/`body`/`isFavorite`, which all have `as String? ?? …` /
-  `as bool? ?? false` fallbacks. If a note object in `notes.json` were
-  ever missing `id` (hand-edited file, a future schema change gone wrong,
-  a partially-migrated record), that cast throws a `TypeError` —
-  **not** a `FormatException`, so the `on FormatException` catch above
-  does *not* catch it. I found this by reading my own code closely for
-  this section rather than by hitting it, which is exactly why I'm
-  flagging it here instead of only fixing it silently: it's a real,
-  reachable-in-theory gap in my error handling, not a hypothetical.
-- **That uncaught exception, if it ever fired, would fail silently from
-  the user's point of view.** `NotesController.load()` is called
-  fire-and-forget from `NotesApp.initState()` in `lib/main.dart` — not
-  awaited, no `.catchError`. If `load()` throws, `_isLoading` never flips
-  to `false` (the assignment that would do that never runs), so the home
-  screen's `CircularProgressIndicator` spins forever with no error message
-  and no retry affordance. The same failure mode would happen if
-  `path_provider`'s `getApplicationDocumentsDirectory()` ever threw (e.g.
-  a platform channel issue) — nothing downstream of that call has a
-  try/catch either. This is the single biggest "exception in my code" I'd
-  fix first with more time: at minimum, surface a retry button on that
-  spinner state instead of an unbounded silent hang.
+  still handles the whole-file-isn't-JSON case. What changed: each
+  decoded entry is now parsed individually, in its own `try`/`catch`, and
+  a failure just skips that one entry instead of losing the whole list —
+  see the next point for exactly what this was protecting against, found
+  by reading my own code rather than by hitting it in practice.
+- **Fixed: a note missing its `id` field used to take the entire list
+  down with it, silently.** `Note.fromJson` does `json['id'] as String`
+  — a non-nullable cast with no fallback, unlike `title`/`body`/
+  `isFavorite`, which all have `as String? ?? …` / `as bool? ?? false`
+  fallbacks. A missing `id` throws a `TypeError`, **not** a
+  `FormatException` — so the old single try/catch around the *whole*
+  array didn't catch it, and one bad note wiped every other note in the
+  file. Per-entry parsing (previous point) fixes this: I verified it
+  directly, not just by re-reading the code — wrote a `notes.json` by
+  hand with one note missing `id`, one syntactically-valid-but-nonsense
+  object, and one real note, force-quit and relaunched the app on the
+  simulator, and only the real note loaded. No crash, no lost data for
+  the entry that was actually valid.
+- **Fixed: a repository failure used to hang the home screen forever with
+  no error shown.** `NotesController.load()` is called fire-and-forget
+  from `NotesApp.initState()` in `lib/main.dart` — not awaited. It used
+  to have no error handling anywhere in that chain: if `load()` threw
+  (a corrupt-beyond-recovery file, `path_provider`'s
+  `getApplicationDocumentsDirectory()` failing, anything), `_isLoading`
+  never flipped to `false`, and the home screen's spinner spun forever
+  with no way out. `load()` now catches, exposes a `hasLoadError` flag,
+  and is safe to call again — the home screen shows a real error state
+  with a "Retry" button instead of an infinite spinner. Covered by two
+  `NotesController` tests (fails visibly instead of hanging; a retry
+  after the underlying failure clears recovers normally).
 - **`NotesScope.of(context)` uses `assert` + a null-check operator, not a
   thrown exception with a message.** If a screen is ever rendered outside
   a `NotesScope` ancestor (a mistake I'd expect from a widget test that
