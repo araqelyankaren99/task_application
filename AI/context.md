@@ -415,13 +415,61 @@ exists to catch the class of bug static analysis can't):
 36. Fill in the one placeholder README needed from the person doing the
     challenge (the applying-level line), commit.
 
-**Phase 6 — ship it** (not yet done as of this writing — listed for
-completeness):
-37. `git push origin main develop` (or open a PR — see the repo's actual
-    git remote for where).
-38. Confirm the GitHub repo's visibility is set to public.
-39. Record the required 3-minute unedited screen recording.
-40. Submit the repo link through the channel the brief specifies.
+**Phase 6 — expand the docs on request** (a follow-up ask: explain the
+05/06 decision and the design-mistake list in more depth, add this exact
+step-by-step build log and the git-history log below, name the state-
+management choice again, name every exception the code has, and explain
+the gesture-arena resolution in full):
+37. Expand `README.md`'s "05 vs 06" section into a full comparison (what
+    each frame shows, what neither shows, a tradeoff table).
+38. Add four more findings to `README.md`'s design-notes list (swipe-
+    direction ambiguity, the frame-02-vs-04 favorite-star inconsistency,
+    no undo affordance anywhere in the design, a Figma low-zoom rendering
+    quirk worth flagging for anyone re-reviewing the file).
+39. Add "Gesture conflicts, in detail" and "Exceptions and error
+    handling" sections to `README.md` — the technical write-ups the
+    sections above this one in *this* file summarize.
+40. Add this "How this app was built" section and the "Git history"
+    section below to `AI/context.md`.
+41. Flag the `set up android build configs` commit (see below) in both
+    files rather than silently touching it.
+42. `flutter analyze` + `dart format`, commit.
+
+**Phase 7 — ship it, then fix what pushing surfaced**:
+43. `git push origin main develop dev` (three branches ended up existing
+    at different points from branch-management requests along the way —
+    see the git-history section for the branch operations themselves,
+    which are deliberately *not* replayable commands the way 1-42 are).
+44. Confirm the GitHub repo's visibility is public.
+45. On request ("this task is very important, make it as good as
+    possible if you find real improvements"): re-read the "what's still
+    wrong" list with fresh eyes and fix what's genuinely fixable in the
+    time available, rather than leave documented-but-fixable gaps
+    documented. Four came out of that pass:
+    - `JsonFileNotesRepository.load()`: parse each note independently
+      instead of one try/catch around the whole array — one malformed
+      entry no longer takes every other note down with it. Verified by
+      hand-writing a `notes.json` with one broken entry among valid
+      ones, force-quitting, relaunching, confirming only the valid notes
+      survived.
+    - `NotesController.load()`: catch failures instead of letting them
+      propagate uncaught from a fire-and-forget call in `initState`;
+      expose `hasLoadError`; `HomeScreen` shows a real error state with
+      a Retry button instead of a spinner stuck forever. Covered by two
+      new `NotesController` tests.
+    - A long-press action menu (`showNoteActionsSheet`) as a non-gesture
+      path to delete/favorite/open — closes the accessibility gap the
+      README had named ("no way to act on a note without a horizontal
+      drag"). Verified on-device.
+    - An Undo snackbar on delete — closes the "no recovery from an
+      accidental delete" gap. The delete-and-persist half was verified
+      (checked `notes.json` directly); the Undo tap itself hit an
+      unresolved simulator-automation timing anomaly — documented
+      honestly in the README rather than claimed as fully verified.
+46. Update `README.md`'s "what's still wrong" and exceptions/gesture
+    sections to describe what was *fixed*, not present four now-closed
+    gaps as still open. Update this file's Traps section the same way.
+    Commit.
 
 ## Git history, one commit at a time
 
@@ -534,15 +582,25 @@ as telling a reviewer nothing.
     knows, not authoring content — landed after the applicant answered.
 
 **Not listed above: a commit titled `set up android build configs`.** It
-lands in `git log` between #10 and this file's own commits, but wasn't
-made by the work described here — it appeared while this session's git
-write access was locked down by the tool's own permission system, so it
-came from somewhere else. It changed `android/app/build.gradle.kts` to a
-namespace (`com.sparsa.dix`) that belongs to a different project entirely,
-and mixed Groovy-script assignment syntax into a Kotlin-DSL (`.kts`) file
-in a way that didn't compile.
+lands in `git log` between #10 and #11 below, but wasn't made by the work
+described here — it appeared while this session's git write access was
+locked down by the tool's own permission system, so it came from
+somewhere else. It changed `android/app/build.gradle.kts` to a namespace
+(`com.sparsa.dix`) that belongs to a different project entirely, and
+mixed Groovy-script assignment syntax into a Kotlin-DSL (`.kts`) file in a
+way that didn't compile.
 
 11. ```bash
+    git add README.md AI/context.md
+    git commit -m "Expand README and AI/context.md: 05/06 in depth, design issues, gestures, exceptions, build/git history"
+    ```
+    This is Phase 6 above (steps 37-42) landing as one commit — the
+    05/06 comparison, the four extra design findings, the gesture/
+    exceptions technical write-ups, and the first version of this
+    build-log/git-history pair, all requested in one follow-up prompt
+    (see "The prompts that actually drove this").
+
+12. ```bash
     git add android/app/build.gradle.kts android/gradle.properties
     git commit -m "Fix Android build config: restore correct namespace and Kotlin DSL syntax"
     ```
@@ -555,6 +613,61 @@ in a way that didn't compile.
     actual build, since this class of bug (wrong DSL syntax in a
     `.kts` file) is exactly the kind that static analysis of the *Dart*
     code would never catch.
+
+13. ```bash
+    git add README.md AI/context.md
+    git commit -m "Update docs: the android build-config issue is now found-and-fixed, not just flagged"
+    ```
+    A "known issue, unfixed" callout left standing after the issue was
+    actually fixed would be actively misleading, not just stale — this
+    rewrote it to describe what was found and how it was fixed.
+
+14. ```bash
+    git add AI/context.md
+    git commit -m 'Add "The prompts that actually drove this" to AI/context.md'
+    ```
+    See that section above — the real, verbatim prompt-to-commit map,
+    added on request, requested and delivered as its own follow-up
+    rather than folded into #11.
+
+15. ```bash
+    git add lib/data/notes_repository.dart lib/state/notes_controller.dart \
+      lib/screens/home/home_screen.dart test/fakes/fake_notes_repository.dart \
+      test/notes_controller_test.dart
+    git commit -m "Fix two self-reported gaps: single-note JSON corruption, silent load failure"
+    ```
+    The first of four fixes from the "make this as good as possible, fix
+    what's genuinely fixable" pass (Phase 7, step 45) — see that step for
+    what each one does and how it was verified. Scoped to exactly the two
+    gaps this commit's message names, tested, `flutter analyze` clean,
+    before moving to the next fix.
+
+16. ```bash
+    git add lib/widgets/note_card.dart \
+      lib/screens/home/widgets/note_actions_sheet.dart \
+      lib/screens/home/widgets/swipeable_note_card.dart
+    git commit -m "Add a non-gesture fallback for delete/favorite (long-press menu)"
+    ```
+17. ```bash
+    git add lib/screens/home/home_screen.dart
+    git commit -m "Add an Undo affordance for delete"
+    ```
+    16 and 17 are separately committed even though they interact (the
+    menu's delete option flows into the same undo snackbar) because
+    they're two distinct, independently-describable fixes for two
+    distinct, separately-named gaps (accessibility fallback; delete
+    recoverability) — cleanly separable by which files each one touches.
+
+18. ```bash
+    git add README.md AI/context.md
+    git commit -m "Update docs: reflect the four fixes and their on-device verification"
+    ```
+    Closing the loop Phase 7 opened: the "what's still wrong" and
+    exceptions/gesture sections described four gaps as open; this commit
+    is what makes that true again after fixing them — including naming,
+    honestly, the one thing (verifying the Undo tap itself) that fixing
+    the code didn't also let me fully verify. See "What is still wrong
+    with this" in the README for the exact wording used.
 
 ## Things you can safely ignore or that are known-incomplete
 
