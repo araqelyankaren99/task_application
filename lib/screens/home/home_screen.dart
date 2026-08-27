@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../models/note.dart';
 import '../../routes.dart';
+import '../../state/notes_controller.dart';
 import '../../state/notes_scope.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/responsive_center.dart';
@@ -67,7 +69,8 @@ class HomeScreen extends StatelessWidget {
                                 onTap: () => Navigator.of(
                                   context,
                                 ).push(AppRoutes.reading(noteId: note.id)),
-                                onDelete: () => controller.delete(note.id),
+                                onDelete: () =>
+                                    _deleteWithUndo(context, controller, note),
                                 onFavorite: () =>
                                     controller.toggleFavorite(note.id),
                               );
@@ -90,6 +93,34 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Deletes [note] and shows an "Undo" snackbar — the design has no
+/// recovery affordance anywhere for an accidental swipe-delete (frames
+/// 01-14 show no confirmation, no snackbar, nothing), which is a real gap
+/// for an app that otherwise cares about not losing data. [note] is
+/// captured by value (it's an immutable model) before the delete, so
+/// "Undo" just re-`upsert`s the exact note that was removed — same id,
+/// same content, same favorite state — rather than trying to reconstruct
+/// it from anything.
+void _deleteWithUndo(
+  BuildContext context,
+  NotesController controller,
+  Note note,
+) {
+  controller.delete(note.id);
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: const Text('Note deleted'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => controller.upsert(note),
+        ),
+      ),
+    );
 }
 
 /// Shown when [NotesController.load] fails — previously this state didn't
